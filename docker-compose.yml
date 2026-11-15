@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: miu-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - MTN_MOMO_API_KEY=${MTN_MOMO_API_KEY}
+      - AIRTEL_MONEY_API_KEY=${AIRTEL_MONEY_API_KEY}
+    networks:
+      - miu-network
+
+  # Nginx Reverse Proxy with SSL and Gzip Caching
+  nginx:
+    image: nginx:alpine
+    container_name: miu-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - web
+    networks:
+      - miu-network
+
+networks:
+  miu-network:
+    driver: bridge
