@@ -13,7 +13,8 @@ import {
   Store, 
   Truck, 
   Check, 
-  X 
+  X,
+  MessageCircle
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { formatUGX } from "@/lib/utils/formatters";
@@ -57,6 +58,27 @@ export default function CartPage() {
     if (res.success) {
       setInputCoupon("");
     }
+  };
+
+  const handleOrderViaChat = () => {
+    if (cart.length === 0) return;
+
+    let orderSummary = `🛒 *MIU NEW ORDER REQUEST*\n`;
+    orderSummary += `------------------------------------\n`;
+    cart.forEach((item, index) => {
+      orderSummary += `${index + 1}. ${item.quantity}x ${item.product.name} - ${formatUGX(item.product.price_ugx * item.quantity)}\n`;
+    });
+    orderSummary += `------------------------------------\n`;
+    orderSummary += `*Subtotal:* ${formatUGX(subtotal)}\n`;
+    if (discount > 0) {
+      orderSummary += `*Discount:* -${formatUGX(discount)}\n`;
+    }
+    orderSummary += `*Total Payable:* ${formatUGX(totalPayable)}\n`;
+    orderSummary += `*Payment:* MTN / Airtel Mobile Money\n`;
+    orderSummary += `Please confirm my order and arrange delivery! 🇺🇬`;
+
+    const encoded = encodeURIComponent(orderSummary);
+    router.push(`/chat?order=${encoded}`);
   };
 
   return (
@@ -288,14 +310,24 @@ export default function CartPage() {
                   </span>
                 </div>
 
-                {/* Checkout CTA */}
-                <button
-                  onClick={() => router.push("/checkout")}
-                  className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2 active:scale-98"
-                >
-                  <span>Proceed to Checkout</span>
-                  <ArrowRight size={17} />
-                </button>
+                {/* Order via Chat CTA */}
+                <div className="space-y-2">
+                  <button
+                    onClick={handleOrderViaChat}
+                    className="w-full py-3.5 bg-[#075E54] hover:bg-[#008069] text-white font-black text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-98"
+                  >
+                    <MessageCircle size={18} className="fill-white/20" />
+                    <span>Order via Chat Now</span>
+                    <ArrowRight size={17} />
+                  </button>
+
+                  <button
+                    onClick={() => router.push("/checkout")}
+                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>Or Standard Web Checkout</span>
+                  </button>
+                </div>
 
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center gap-1.5 text-[11px] text-gray-500 text-center">
                   <ShieldCheck size={14} className="text-emerald-700 shrink-0" />

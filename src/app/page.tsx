@@ -6,10 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { CategoryGrid } from "@/components/home/CategoryGrid";
-import { TrendingProducts } from "@/components/home/TrendingProducts";
-import { FlashSales } from "@/components/home/FlashSales";
-import { NewArrivals } from "@/components/home/NewArrivals";
-import { AllProductsCatalog } from "@/components/home/AllProductsCatalog";
+import { HomeProductTabs } from "@/components/home/HomeProductTabs";
 import { mockDb } from "@/lib/data/mockDb";
 
 export default function HomePage() {
@@ -21,24 +18,15 @@ export default function HomePage() {
       <Header />
 
       <main className="flex-1 w-full">
-        {/* HERO CAROUSEL — full-width, no horizontal padding */}
+        {/* HERO CAROUSEL */}
         <HeroCarousel />
 
         <div className="max-w-7xl mx-auto px-3 sm:px-5">
-          {/* CATEGORIES — SHEIN-style horizontal scroll */}
+          {/* 10 CATEGORIES — 5 by 2 square cards with round borders */}
           <CategoryGrid />
 
-          {/* TRENDING PRODUCTS */}
-          <TrendingProducts products={products} />
-
-          {/* FLASH SALES */}
-          <FlashSales products={products} />
-
-          {/* NEW ARRIVALS */}
-          <NewArrivals products={products} />
-
-          {/* ALL PRODUCTS (Complete Catalogue) */}
-          <AllProductsCatalog initialProducts={products} />
+          {/* TABBED SECTIONS: Trending Products, All Products, Discounts */}
+          <HomeProductTabs products={products} />
         </div>
       </main>
 

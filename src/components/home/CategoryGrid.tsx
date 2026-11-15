@@ -6,45 +6,51 @@ import Link from "next/link";
 import { CATEGORIES } from "@/lib/data/store";
 
 export const CategoryGrid: React.FC = () => {
+  // Exactly 10 categories
+  const categories = CATEGORIES.slice(0, 10);
+
   return (
     <section className="my-6">
       {/* Section Header */}
-      <div className="flex items-center justify-between mb-4 px-0.5">
-        <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight uppercase">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h2 className="text-sm sm:text-base md:text-lg font-black text-gray-900 tracking-tight uppercase">
           Shop by Category
         </h2>
         <Link
           href="/categories"
           className="text-xs font-bold text-green-700 hover:text-green-900 transition"
         >
-          View all →
+          View all 10 →
         </Link>
       </div>
 
-      {/* Horizontal scrollable SHEIN-style category row */}
-      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-        {CATEGORIES.map((cat) => (
+      {/* 5 by 2 Grid: square cards with round borders */}
+      <div className="grid grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+        {categories.map((cat) => (
           <Link
             key={cat.id}
             href={`/categories/${cat.slug}`}
-            className="group flex-shrink-0 flex flex-col items-center gap-1.5"
+            className="group flex flex-col items-center"
           >
-            {/* Round image tile */}
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-gray-100 ring-2 ring-transparent group-hover:ring-green-600 transition-all duration-200 shadow-sm">
+            {/* Square card with round borders */}
+            <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-xs group-hover:border-green-600 group-hover:shadow-md transition-all duration-300">
               <Image
                 src={cat.image_url}
                 alt={cat.name}
                 fill
-                className="object-cover group-hover:scale-110 transition-transform duration-300"
-                sizes="96px"
+                className="object-cover object-center group-hover:scale-108 transition-transform duration-500"
+                sizes="(max-width: 640px) 20vw, (max-width: 1024px) 20vw, 15vw"
               />
-              {/* Subtle dark overlay on hover */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 rounded-full" />
+              {/* Gradient overlay for readability */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent opacity-90 group-hover:opacity-95 transition-opacity" />
+
+              {/* Title inside card at bottom */}
+              <div className="absolute inset-x-1 bottom-1 sm:inset-x-2 sm:bottom-2 text-center">
+                <span className="text-[10px] sm:text-xs md:text-sm font-bold text-white leading-tight drop-shadow-md line-clamp-2">
+                  {cat.name}
+                </span>
+              </div>
             </div>
-            {/* Category name */}
-            <span className="text-[11px] sm:text-xs font-semibold text-gray-800 text-center max-w-[88px] leading-tight line-clamp-2 group-hover:text-green-700 transition-colors">
-              {cat.name}
-            </span>
           </Link>
         ))}
       </div>

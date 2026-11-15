@@ -90,24 +90,22 @@ export default function SupportPage() {
 
         {/* Quick Contact Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
-          {/* WhatsApp Direct Link */}
-          <a
-            href="https://wa.me/256700123456?text=Hello%20MIU%20Support%2C%20I%20need%20assistance%20with%20my%20order"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group bg-emerald-700 text-white rounded-2xl p-5 hover:bg-emerald-800 transition shadow-sm flex flex-col justify-between"
+          {/* In-App WhatsApp Chat Direct Link */}
+          <Link
+            href="/chat"
+            className="group bg-[#075E54] text-white rounded-2xl p-5 hover:bg-[#008069] transition shadow-md flex flex-col justify-between"
           >
             <div>
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-3">
                 <MessageSquare size={20} />
               </div>
-              <h3 className="font-bold text-base mb-1">WhatsApp Live Chat</h3>
+              <h3 className="font-bold text-base mb-1">In-App Live Chat</h3>
               <p className="text-xs text-emerald-100">
-                Direct instant support with our Kampala support team. Available 7 days a week.
+                Direct instant support & order placement with voice note & texting option.
               </p>
             </div>
-            <span className="text-xs font-bold underline mt-4">Start WhatsApp Chat →</span>
-          </a>
+            <span className="text-xs font-black underline mt-4">Open WhatsApp Chat System →</span>
+          </Link>
 
           {/* Telephone Line */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">

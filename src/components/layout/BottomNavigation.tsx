@@ -3,14 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LayoutGrid, ShoppingCart, Headphones, Settings } from "lucide-react";
+import { Home, LayoutGrid, ShoppingCart, MessageCircle, Settings } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
 export const BottomNavigation: React.FC = () => {
   const pathname = usePathname();
   const { totalItems } = useCart();
 
-  // Exactly the five required destinations
+  // Exactly the five required destinations with in-app WhatsApp Chat
   const navItems = [
     {
       name: "HOME",
@@ -32,10 +32,10 @@ export const BottomNavigation: React.FC = () => {
       badge: totalItems,
     },
     {
-      name: "SUPPORT",
-      href: "/support",
-      icon: Headphones,
-      isActive: pathname.startsWith("/support"),
+      name: "CHAT",
+      href: "/chat",
+      icon: MessageCircle,
+      isActive: pathname.startsWith("/chat"),
     },
     {
       name: "SETTINGS",

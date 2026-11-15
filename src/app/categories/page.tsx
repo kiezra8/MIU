@@ -30,49 +30,34 @@ export default function CategoriesDirectoryPage() {
           </p>
         </div>
 
-        {/* SHEIN-style visual category card grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 mb-10">
+        {/* 10 Categories Grid: Square cards with round borders */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-10">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat.id}
               href={`/categories/${cat.slug}`}
-              className="group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-green-600 hover:shadow-lg transition-all duration-300 flex flex-col"
+              className="group flex flex-col items-center"
             >
-              {/* Category Image - SHEIN dominant visual */}
-              <div className="relative aspect-4/3 w-full bg-gray-100 overflow-hidden">
+              {/* Square card with round borders */}
+              <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-xs group-hover:border-green-600 group-hover:shadow-lg transition-all duration-300">
                 <Image
                   src={cat.image_url}
                   alt={cat.name}
                   fill
-                  className="object-cover group-hover:scale-108 transition-transform duration-500"
+                  className="object-cover object-center group-hover:scale-108 transition-transform duration-500"
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                <div className="absolute bottom-2.5 left-2.5 right-2.5 text-white">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent group-hover:from-black/85 transition-opacity" />
+                
+                {/* Category name & subcategory count inside card at bottom */}
+                <div className="absolute inset-x-2 bottom-2 text-center text-white">
                   <h3 className="font-black text-xs sm:text-sm drop-shadow line-clamp-1">
                     {cat.name}
                   </h3>
-                  <span className="text-[10px] text-gray-200 block drop-shadow-xs">
-                    {cat.subcategories.length} subcategories
+                  <span className="text-[10px] text-green-300 font-bold block drop-shadow-xs mt-0.5">
+                    {cat.subcategories.length} subcategories →
                   </span>
                 </div>
-              </div>
-
-              {/* Subcategories preview */}
-              <div className="p-2 sm:p-2.5 bg-white text-xs text-gray-600 flex flex-wrap gap-1">
-                {cat.subcategories.slice(0, 3).map((sub) => (
-                  <span
-                    key={sub.id}
-                    className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] text-gray-600 truncate max-w-[95px]"
-                  >
-                    {sub.name}
-                  </span>
-                ))}
-                {cat.subcategories.length > 3 && (
-                  <span className="px-1 py-0.5 text-[10px] text-green-700 font-bold">
-                    +{cat.subcategories.length - 3}
-                  </span>
-                )}
               </div>
             </Link>
           ))}

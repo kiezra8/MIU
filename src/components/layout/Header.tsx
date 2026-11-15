@@ -15,7 +15,8 @@ import {
   X,
   ShieldCheck,
   TrendingUp,
-  Clock
+  Clock,
+  MessageCircle
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -313,6 +314,16 @@ export const Header: React.FC = () => {
             >
               <Search size={21} />
             </button>
+
+            {/* Live WhatsApp Chat Button */}
+            <Link
+              href="/chat"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-[#075E54] hover:bg-[#008069] text-white transition shadow-xs"
+              title="Chat & Order with Support"
+            >
+              <MessageCircle size={15} />
+              <span>Live Chat</span>
+            </Link>
 
             {/* Sell on MIU button */}
             <Link
