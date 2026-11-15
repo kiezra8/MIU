@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -15,15 +15,16 @@ import {
   X,
   ShieldCheck,
   TrendingUp,
-  Clock,
   MessageCircle,
   Mic,
-  MicOff
+  Sparkles
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 import { PRODUCTS, CATEGORIES, SELLERS } from "@/lib/data/store";
+import { translateLocalQuery } from "@/lib/utils/localLanguageTranslator";
+import { VoiceSearchModal } from "@/components/layout/VoiceSearchModal";
 
 export const Header: React.FC = () => {
   const router = useRouter();
@@ -36,92 +37,24 @@ export const Header: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [speechStatus, setSpeechStatus] = useState("");
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
 
-  // Voice Search handler supporting local phrasing (Luganda, Swahili, Ugandan English)
-  const toggleVoiceSearch = () => {
-    if (typeof window === "undefined") return;
+  // Auto-translate user input from Luganda, Swahili, Runyankore, Luo, etc. into English
+  const queryTranslation = useMemo(
+    () => translateLocalQuery(searchQuery),
+    [searchQuery]
+  );
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Voice search is not supported on this browser. Please use Chrome, Safari, or Edge.");
-      return;
-    }
-
-    if (isListening) {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          // ignore
-        }
-      }
-      setIsListening(false);
-      setSpeechStatus("");
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      // 'en-UG' enables Ugandan English accent & local East African phonetics (Luganda/Swahili names)
-      recognition.lang = "en-UG";
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setSpeechStatus("Listening... Speak in your local language or English");
-        setIsSearchOpen(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        const currentText = finalTranscript || interimTranscript;
-        if (currentText) {
-          setSearchQuery(currentText);
-        }
-
-        if (finalTranscript.trim()) {
-          setIsListening(false);
-          setSpeechStatus("");
-          router.push(`/search?q=${encodeURIComponent(finalTranscript.trim())}`);
-          setIsSearchOpen(false);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.warn("Speech recognition notice:", event.error);
-        setIsListening(false);
-        setSpeechStatus("");
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        setSpeechStatus("");
-      };
-
-      recognition.start();
-    } catch (err) {
-      console.error("Speech recognition startup error:", err);
-      setIsListening(false);
-      setSpeechStatus("");
-    }
+  // Handle voice result from VoiceSearchModal
+  const handleVoiceSearchResult = (finalQuery: string, originalQuery: string) => {
+    setSearchQuery(finalQuery);
+    setIsVoiceModalOpen(false);
+    setIsMobileSearchOpen(false);
+    setIsSearchOpen(false);
+    router.push(
+      `/search?q=${encodeURIComponent(finalQuery)}&orig=${encodeURIComponent(originalQuery)}`
+    );
   };
 
   // Close search suggestions on click outside
@@ -135,519 +68,554 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter suggestions
-  const matchingProducts = searchQuery.trim()
-    ? PRODUCTS.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category_name?.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 4)
-    : [];
+  // Filter live suggestions matching either original input or translated English terms
+  const matchingProducts = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const qOriginal = searchQuery.toLowerCase();
+    const qTranslated = queryTranslation.translated.toLowerCase();
+    const translatedTokens = qTranslated.split(" ").filter((t) => t.length > 2);
 
-  const matchingCategories = searchQuery.trim()
-    ? CATEGORIES.filter((c) =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 2)
-    : [];
+    return PRODUCTS.filter((p) => {
+      const name = p.name.toLowerCase();
+      const cat = (p.category_name || "").toLowerCase();
+      const desc = (p.short_description || "").toLowerCase();
+      const sub = (p.subcategory_name || "").toLowerCase();
 
-  const matchingSellers = searchQuery.trim()
-    ? SELLERS.filter((s) =>
-        s.business_name.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 2)
-    : [];
+      return (
+        name.includes(qOriginal) ||
+        cat.includes(qOriginal) ||
+        name.includes(qTranslated) ||
+        cat.includes(qTranslated) ||
+        desc.includes(qTranslated) ||
+        sub.includes(qTranslated) ||
+        translatedTokens.some((t) => name.includes(t) || cat.includes(t))
+      );
+    }).slice(0, 4);
+  }, [searchQuery, queryTranslation]);
+
+  const matchingCategories = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const qOriginal = searchQuery.toLowerCase();
+    const qTranslated = queryTranslation.translated.toLowerCase();
+    return CATEGORIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(qOriginal) ||
+        c.name.toLowerCase().includes(qTranslated)
+    ).slice(0, 2);
+  }, [searchQuery, queryTranslation]);
+
+  const matchingSellers = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const qOriginal = searchQuery.toLowerCase();
+    return SELLERS.filter((s) =>
+      s.business_name.toLowerCase().includes(qOriginal)
+    ).slice(0, 2);
+  }, [searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
     setIsSearchOpen(false);
     setIsMobileSearchOpen(false);
-    router.push(`/search?q=${encodeURIComponent(searchQuery)}&cat=${selectedCategory}`);
+
+    // If query was in a local language, search by translated English product terms
+    const finalTarget = queryTranslation.isTranslated
+      ? queryTranslation.translated
+      : searchQuery.trim();
+
+    router.push(
+      `/search?q=${encodeURIComponent(finalTarget)}&orig=${encodeURIComponent(searchQuery.trim())}&cat=${selectedCategory}`
+    );
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
-      {/* Top Utility Banner */}
-      <div className="bg-[#111827] text-white text-[11px] py-1.5 px-4 hidden md:block">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1 font-medium text-emerald-400">
-              <ShieldCheck size={13} />
-              100% Genuine Ugandan Products
-            </span>
-            <span className="text-gray-500">|</span>
-            <span className="text-gray-300">
-              Nationwide Delivery across all Districts • MTN & Airtel MoMo Accepted
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Quick Role Switcher for seamless testing */}
-            <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-0.5 rounded text-[11px]">
-              <span className="text-gray-400">Mode:</span>
-              <button
-                onClick={() => switchRole("customer")}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  role === "customer" ? "bg-emerald-600 text-white font-semibold" : "text-gray-300 hover:text-white"
-                }`}
-              >
-                Customer
-              </button>
-              <button
-                onClick={() => switchRole("seller")}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  role === "seller" ? "bg-emerald-600 text-white font-semibold" : "text-gray-300 hover:text-white"
-                }`}
-              >
-                Seller
-              </button>
-              <button
-                onClick={() => switchRole("admin")}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  role === "admin" ? "bg-emerald-600 text-white font-semibold" : "text-gray-300 hover:text-white"
-                }`}
-              >
-                Admin
-              </button>
+    <>
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
+        {/* Top Utility Banner */}
+        <div className="bg-[#111827] text-white text-[11px] py-1.5 px-4 hidden md:block">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1 font-medium text-emerald-400">
+                <ShieldCheck size={13} />
+                100% Genuine Ugandan Products
+              </span>
+              <span className="text-gray-500">|</span>
+              <span className="text-gray-300">
+                Nationwide Delivery across all Districts • MTN &amp; Airtel MoMo Accepted
+              </span>
             </div>
 
-            <Link href="/support" className="text-gray-300 hover:text-white flex items-center gap-1 transition">
-              <Headphones size={12} />
-              Help & Support
-            </Link>
+            <div className="flex items-center gap-4">
+              {/* Quick Role Switcher */}
+              <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-0.5 rounded text-[11px]">
+                <span className="text-gray-400">Mode:</span>
+                <button
+                  onClick={() => switchRole("customer")}
+                  className={`px-1.5 py-0.5 rounded transition ${
+                    role === "customer" ? "bg-emerald-600 text-white font-semibold" : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Customer
+                </button>
+                <button
+                  onClick={() => switchRole("seller")}
+                  className={`px-1.5 py-0.5 rounded transition ${
+                    role === "seller" ? "bg-emerald-600 text-white font-semibold" : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Seller
+                </button>
+                <button
+                  onClick={() => switchRole("admin")}
+                  className={`px-1.5 py-0.5 rounded transition ${
+                    role === "admin" ? "bg-emerald-600 text-white font-semibold" : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
+
+              <Link href="/support" className="text-gray-300 hover:text-white flex items-center gap-1 transition">
+                <Headphones size={12} />
+                Help &amp; Support
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Header Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-        <div className="flex items-center justify-between gap-3 md:gap-6">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0 group">
-            <div className="w-10 h-10 rounded-lg bg-emerald-700 flex flex-col items-center justify-center text-white font-black shadow-sm group-hover:bg-emerald-800 transition">
-              <span className="text-sm tracking-tighter leading-none">MIU</span>
-              <div className="flex gap-0.5 mt-0.5">
-                <span className="w-1 h-1 rounded-full bg-black"></span>
-                <span className="w-1 h-1 rounded-full bg-yellow-400"></span>
-                <span className="w-1 h-1 rounded-full bg-red-600"></span>
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-gray-900 leading-none">
-                MIU<span className="text-emerald-700">.</span>
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-semibold text-gray-500 uppercase tracking-widest mt-0.5">
-                Made In Uganda
-              </span>
-            </div>
-          </Link>
-
-          {/* Desktop Prominent Search Bar */}
-          <div ref={searchRef} className="hidden md:flex flex-1 max-w-2xl relative">
-            <form onSubmit={handleSearchSubmit} className="flex w-full">
-              {/* Category selector */}
-              <div className="relative">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="h-11 pl-3 pr-8 bg-gray-50 border border-r-0 border-gray-300 text-xs font-medium text-gray-700 rounded-l-lg focus:outline-none focus:bg-white cursor-pointer appearance-none"
-                >
-                  <option value="all">All Categories</option>
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.slug}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-2 top-3.5 text-gray-500 pointer-events-none" />
-              </div>
-
-              {/* Input field with Voice Recognition */}
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder={
-                    isListening
-                      ? "🎙️ Listening... Speak in your local language or English..."
-                      : "Search authentic Ugandan products, brands, artisans..."
-                  }
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setIsSearchOpen(true);
-                  }}
-                  onFocus={() => setIsSearchOpen(true)}
-                  className={`w-full h-11 pl-4 pr-20 text-sm border focus:outline-none transition ${
-                    isListening
-                      ? "border-red-500 ring-2 ring-red-200 bg-red-50/20"
-                      : "border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
-                  }`}
-                />
-                
-                <div className="absolute right-2.5 top-2 flex items-center gap-1">
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="p-1 text-gray-400 hover:text-gray-600"
-                      title="Clear"
-                    >
-                      <X size={15} />
-                    </button>
-                  )}
-
-                  {/* Local Language Voice Search Button */}
-                  <button
-                    type="button"
-                    onClick={toggleVoiceSearch}
-                    className={`p-1.5 rounded-full transition-all ${
-                      isListening
-                        ? "bg-red-600 text-white animate-pulse shadow-xs"
-                        : "text-gray-500 hover:text-emerald-700 hover:bg-gray-100"
-                    }`}
-                    title={
-                      isListening
-                        ? "Listening... Tap to stop"
-                        : "Voice Search: Speak in your local language (Luganda, Swahili, English)"
-                    }
-                  >
-                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                  </button>
+        {/* Main Header Container */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-3 md:gap-6">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2 shrink-0 group">
+              <div className="w-10 h-10 rounded-lg bg-emerald-700 flex flex-col items-center justify-center text-white font-black shadow-sm group-hover:bg-emerald-800 transition">
+                <span className="text-sm tracking-tighter leading-none">MIU</span>
+                <div className="flex gap-0.5 mt-0.5">
+                  <span className="w-1 h-1 rounded-full bg-black"></span>
+                  <span className="w-1 h-1 rounded-full bg-yellow-400"></span>
+                  <span className="w-1 h-1 rounded-full bg-red-600"></span>
                 </div>
               </div>
-
-              {/* Search button in Ugandan Green */}
-              <button
-                type="submit"
-                className="h-11 px-5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm rounded-r-lg flex items-center justify-center gap-1.5 transition shrink-0"
-              >
-                <Search size={17} />
-                <span>Search</span>
-              </button>
-            </form>
-
-            {/* Listening Status Banner for Desktop */}
-            {isListening && speechStatus && (
-              <div className="absolute top-12 left-0 right-0 bg-red-50 border border-red-200 text-red-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-2 z-50 shadow-xs">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block shrink-0" />
-                <span className="font-semibold">{speechStatus}</span>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-gray-900 leading-none">
+                  MIU<span className="text-emerald-700">.</span>
+                </span>
+                <span className="text-[9px] sm:text-[10px] font-semibold text-gray-500 uppercase tracking-widest mt-0.5">
+                  Made In Uganda
+                </span>
               </div>
-            )}
+            </Link>
 
-            {/* Live Search Suggestions Dropdown */}
-            {isSearchOpen && !isListening && (
-              <div className="absolute top-12 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 max-h-96 overflow-y-auto">
-                {searchQuery.trim() ? (
-                  <div>
-                    {matchingProducts.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                          <TrendingUp size={12} /> Products
-                        </div>
-                        {matchingProducts.map((p) => (
-                          <Link
-                            key={p.id}
-                            href={`/products/${p.slug}`}
-                            onClick={() => setIsSearchOpen(false)}
-                            className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition"
-                          >
-                            <span className="text-sm font-medium text-gray-900 truncate">
-                              {p.name}
-                            </span>
-                            <span className="text-xs font-bold text-emerald-700 ml-2 shrink-0">
-                              UGX {p.price_ugx.toLocaleString()}
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
+            {/* Desktop Prominent Search Bar */}
+            <div ref={searchRef} className="hidden md:flex flex-1 max-w-2xl relative">
+              <form onSubmit={handleSearchSubmit} className="flex w-full">
+                {/* Category selector */}
+                <div className="relative">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="h-11 pl-3 pr-8 bg-gray-50 border border-r-0 border-gray-300 text-xs font-medium text-gray-700 rounded-l-lg focus:outline-none focus:bg-white cursor-pointer appearance-none"
+                  >
+                    <option value="all">All Categories</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.slug}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-3.5 text-gray-500 pointer-events-none" />
+                </div>
+
+                {/* Input field with Voice Recognition & Local Language Translation */}
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search in English, Luganda, or Swahili (e.g. engatto, emmwanyi, coffee)..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setIsSearchOpen(true);
+                    }}
+                    onFocus={() => setIsSearchOpen(true)}
+                    className="w-full h-11 pl-4 pr-20 text-sm border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition"
+                  />
+
+                  <div className="absolute right-2.5 top-2 flex items-center gap-1">
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Clear"
+                      >
+                        <X size={15} />
+                      </button>
                     )}
 
-                    {matchingCategories.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                          Categories
-                        </div>
-                        {matchingCategories.map((c) => (
-                          <Link
-                            key={c.id}
-                            href={`/categories/${c.slug}`}
-                            onClick={() => setIsSearchOpen(false)}
-                            className="block p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition"
-                          >
-                            Browse <span className="font-semibold text-gray-900">{c.name}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-
-                    {matchingSellers.length > 0 && (
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                          <Store size={12} /> Ugandan Stores
-                        </div>
-                        {matchingSellers.map((s) => (
-                          <Link
-                            key={s.id}
-                            href={`/stores/${s.slug}`}
-                            onClick={() => setIsSearchOpen(false)}
-                            className="block p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition"
-                          >
-                            <span className="font-semibold text-gray-900">{s.business_name}</span> ({s.district})
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-
-                    {matchingProducts.length === 0 && matchingCategories.length === 0 && matchingSellers.length === 0 && (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        No matches found for &quot;{searchQuery}&quot;. Try &quot;Coffee&quot;, &quot;Kitenge&quot;, or &quot;Shea Butter&quot;.
-                      </div>
-                    )}
+                    {/* Voice Search in Any Language */}
+                    <button
+                      type="button"
+                      onClick={() => setIsVoiceModalOpen(true)}
+                      className="p-1.5 rounded-full text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
+                      title="Voice Search in Any Language (Luganda, Swahili, English)"
+                    >
+                      <Mic size={17} className="text-emerald-700 hover:scale-110 transition-transform" />
+                    </button>
                   </div>
-                ) : (
-                  <div>
-                    <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                      <Clock size={12} /> Popular Ugandan Searches
+                </div>
+
+                {/* Search button in Ugandan Green */}
+                <button
+                  type="submit"
+                  className="h-11 px-5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm rounded-r-lg flex items-center justify-center gap-1.5 transition shrink-0"
+                >
+                  <Search size={17} />
+                  <span>Search</span>
+                </button>
+              </form>
+
+              {/* Live Search Suggestions Dropdown */}
+              {isSearchOpen && (
+                <div className="absolute top-12 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 max-h-96 overflow-y-auto">
+                  {/* Automatic Language Translation Notice */}
+                  {queryTranslation.isTranslated && (
+                    <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-xs text-green-900">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-green-700 shrink-0" />
+                        <span>
+                          Translating from <strong>{queryTranslation.detectedLanguage || "local language"}</strong>:{" "}
+                          <strong className="text-green-950">&ldquo;{queryTranslation.translated}&rdquo;</strong>
+                        </span>
+                      </div>
+                      <span className="text-[10px] bg-green-700 text-white font-black px-1.5 py-0.5 rounded uppercase">
+                        Auto
+                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {["Mount Elgon Coffee", "Handmade Baskets", "Kitenge Dress", "Nilotica Shea", "Raw Honey", "Leather Tote"].map(
-                        (term) => (
+                  )}
+
+                  {searchQuery.trim() ? (
+                    <div>
+                      {matchingProducts.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                            <TrendingUp size={12} /> Products
+                          </div>
+                          {matchingProducts.map((p) => (
+                            <Link
+                              key={p.id}
+                              href={`/products/${p.slug}`}
+                              onClick={() => setIsSearchOpen(false)}
+                              className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition"
+                            >
+                              <span className="text-sm font-medium text-gray-900 truncate">
+                                {p.name}
+                              </span>
+                              <span className="text-xs font-bold text-emerald-700 ml-2 shrink-0">
+                                UGX {p.price_ugx.toLocaleString()}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {matchingCategories.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                            Categories
+                          </div>
+                          {matchingCategories.map((c) => (
+                            <Link
+                              key={c.id}
+                              href={`/categories/${c.slug}`}
+                              onClick={() => setIsSearchOpen(false)}
+                              className="block p-2 hover:bg-gray-50 rounded-md text-sm text-gray-700 font-medium transition"
+                            >
+                              {c.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {matchingSellers.length > 0 && (
+                        <div>
+                          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                            Verified Ugandan Makers
+                          </div>
+                          {matchingSellers.map((s) => (
+                            <Link
+                              key={s.id}
+                              href={`/stores/${s.slug}`}
+                              onClick={() => setIsSearchOpen(false)}
+                              className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition"
+                            >
+                              <span className="text-sm text-gray-700">{s.business_name}</span>
+                              <span className="text-xs text-gray-400">{s.district}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {matchingProducts.length === 0 && matchingCategories.length === 0 && (
+                        <p className="text-xs text-gray-500 py-3 text-center">
+                          Press Enter to search for &ldquo;{queryTranslation.isTranslated ? queryTranslation.translated : searchQuery}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                        Popular Ugandan Searches
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          "Arabica Coffee",
+                          "Engatto (Shoes)",
+                          "Kitenge Dresses",
+                          "Handwoven Baskets",
+                          "Emmwanyi",
+                          "Nilotica Shea Butter",
+                          "Cowhide Bags",
+                          "Omukeeka",
+                          "Raw Honey",
+                        ].map((term) => (
                           <button
                             key={term}
+                            type="button"
                             onClick={() => {
+                              const trans = translateLocalQuery(term);
+                              const target = trans.isTranslated ? trans.translated : term;
                               setSearchQuery(term);
-                              router.push(`/search?q=${encodeURIComponent(term)}`);
+                              router.push(`/search?q=${encodeURIComponent(target)}&orig=${encodeURIComponent(term)}`);
                               setIsSearchOpen(false);
                             }}
                             className="px-2.5 py-1 text-xs bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-full text-gray-700 transition"
                           >
                             {term}
                           </button>
-                        )
-                      )}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Right Header Navigation Icons */}
-          <div className="flex items-center gap-1.5 sm:gap-3">
-            {/* Mobile Search Toggle */}
-            <button
-              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-              className="md:hidden p-2 text-gray-700 hover:text-emerald-700 rounded-lg hover:bg-gray-100 transition"
-              aria-label="Search"
-            >
-              <Search size={21} />
-            </button>
-
-            {/* Live WhatsApp Chat Button */}
-            <Link
-              href="/chat"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-[#075E54] hover:bg-[#008069] text-white transition shadow-xs"
-              title="Chat & Order with Support"
-            >
-              <MessageCircle size={15} />
-              <span>Live Chat</span>
-            </Link>
-
-            {/* Sell on MIU button */}
-            <Link
-              href={role === "seller" ? "/seller/dashboard" : "/seller/register"}
-              className="hidden lg:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-700 text-emerald-800 hover:bg-emerald-50 transition"
-            >
-              <Store size={15} />
-              <span>{role === "seller" ? "Seller Dashboard" : "Sell on MIU"}</span>
-            </Link>
-
-            {/* Admin link if role is admin */}
-            {role === "admin" && (
-              <Link
-                href="/admin"
-                className="hidden lg:inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition"
-              >
-                <SlidersHorizontal size={14} />
-                <span>Admin Panel</span>
-              </Link>
-            )}
-
-            {/* Wishlist */}
-            <Link
-              href="/account/wishlist"
-              className="relative p-2 text-gray-700 hover:text-emerald-700 rounded-lg hover:bg-gray-100 transition"
-              aria-label="Wishlist"
-            >
-              <Heart size={21} />
-              {totalWishlistItems > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {totalWishlistItems}
-                </span>
-              )}
-            </Link>
-
-            {/* Cart Icon with Live Numerical Badge */}
-            <Link
-              href="/cart"
-              className="relative p-2 text-gray-700 hover:text-emerald-700 rounded-lg hover:bg-gray-100 transition flex items-center gap-1.5"
-              aria-label="Shopping Cart"
-            >
-              <ShoppingCart size={21} />
-              {totalItems > 0 && (
-                <span className="absolute top-1 right-1 w-5 h-5 bg-emerald-700 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-xs">
-                  {totalItems}
-                </span>
-              )}
-            </Link>
-
-            {/* Account / Login Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-gray-100 text-gray-700 transition"
-                aria-label="Account Menu"
-              >
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-bold text-xs">
-                  {user?.full_name ? user.full_name[0] : <User size={16} />}
-                </div>
-                <span className="hidden sm:inline-block text-xs font-medium text-gray-900 truncate max-w-[90px]">
-                  {user ? user.full_name.split(" ")[0] : "Account"}
-                </span>
-                <ChevronDown size={14} className="text-gray-400 hidden sm:block" />
-              </button>
-
-              {/* Dropdown Menu */}
-              {isUserMenuOpen && (
-                <div className="absolute right-0 top-11 w-56 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 text-sm">
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-xs text-gray-500">Signed in as</p>
-                    <p className="text-sm font-bold text-gray-900 truncate">{user?.full_name || "Guest"}</p>
-                    <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded">
-                      Role: {role}
-                    </span>
-                  </div>
-
-                  <Link
-                    href="/account"
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    My Account & Orders
-                  </Link>
-
-                  <Link
-                    href="/account/wishlist"
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    My Wishlist ({totalWishlistItems})
-                  </Link>
-
-                  <Link
-                    href="/settings"
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    Settings
-                  </Link>
-
-                  <div className="border-t border-gray-100 my-1"></div>
-
-                  <Link
-                    href="/seller/dashboard"
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-4 py-2 text-emerald-800 font-medium hover:bg-emerald-50 transition"
-                  >
-                    Seller Center
-                  </Link>
-
-                  <Link
-                    href="/admin"
-                    onClick={() => setIsUserMenuOpen(false)}
-                    className="block px-4 py-2 text-gray-900 font-medium hover:bg-gray-100 transition"
-                  >
-                    Admin Dashboard
-                  </Link>
-
-                  <div className="border-t border-gray-100 my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      logout();
-                      setIsUserMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition text-xs font-semibold"
-                  >
-                    Sign Out
-                  </button>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Right Header Navigation Icons */}
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              {/* Mobile Search Toggle */}
+              <button
+                onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+                className="md:hidden p-2 text-gray-700 hover:text-emerald-700 rounded-lg hover:bg-gray-100 transition"
+                aria-label="Search"
+              >
+                <Search size={21} />
+              </button>
+
+              {/* Live WhatsApp Chat Button */}
+              <Link
+                href="/chat"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-[#075E54] hover:bg-[#008069] text-white transition shadow-xs"
+                title="Chat & Order with Support"
+              >
+                <MessageCircle size={15} />
+                <span>Live Chat</span>
+              </Link>
+
+              {/* Sell on MIU button */}
+              <Link
+                href={role === "seller" ? "/seller/dashboard" : "/seller/register"}
+                className="hidden lg:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-700 text-emerald-800 hover:bg-emerald-50 transition"
+              >
+                <Store size={15} />
+                <span>{role === "seller" ? "Seller Dashboard" : "Sell on MIU"}</span>
+              </Link>
+
+              {/* Admin link if role is admin */}
+              {role === "admin" && (
+                <Link
+                  href="/admin"
+                  className="hidden lg:inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition"
+                >
+                  <SlidersHorizontal size={14} />
+                  <span>Admin Panel</span>
+                </Link>
+              )}
+
+              {/* Wishlist */}
+              <Link
+                href="/account/wishlist"
+                className="relative p-2 text-gray-700 hover:text-emerald-700 rounded-lg hover:bg-gray-100 transition"
+                aria-label="Wishlist"
+              >
+                <Heart size={21} />
+                {totalWishlistItems > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {totalWishlistItems}
+                  </span>
+                )}
+              </Link>
+
+              {/* Cart Icon with Live Numerical Badge */}
+              <Link
+                href="/cart"
+                className="relative p-2 text-gray-700 hover:text-emerald-700 rounded-lg hover:bg-gray-100 transition flex items-center gap-1.5"
+                aria-label="Shopping Cart"
+              >
+                <ShoppingCart size={21} />
+                {totalItems > 0 && (
+                  <span className="absolute top-1 right-1 w-5 h-5 bg-emerald-700 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-xs">
+                    {totalItems}
+                  </span>
+                )}
+              </Link>
+
+              {/* Account Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-gray-100 text-gray-700 transition"
+                  aria-label="Account Menu"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-bold text-xs">
+                    {user?.full_name ? user.full_name[0] : <User size={16} />}
+                  </div>
+                  <span className="hidden sm:inline-block text-xs font-medium text-gray-900 truncate max-w-[90px]">
+                    {user ? user.full_name.split(" ")[0] : "Account"}
+                  </span>
+                  <ChevronDown size={14} className="text-gray-400 hidden sm:block" />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 top-11 w-56 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 text-sm">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-xs text-gray-500">Signed in as</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">{user?.full_name || "Guest"}</p>
+                      <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded">
+                        Role: {role}
+                      </span>
+                    </div>
+
+                    <Link
+                      href="/account"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      My Account &amp; Orders
+                    </Link>
+
+                    <Link
+                      href="/account/wishlist"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      My Wishlist ({totalWishlistItems})
+                    </Link>
+
+                    <Link
+                      href="/settings"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      Settings
+                    </Link>
+
+                    <div className="border-t border-gray-100 my-1"></div>
+
+                    <Link
+                      href="/seller/dashboard"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-4 py-2 text-emerald-800 font-medium hover:bg-emerald-50 transition"
+                    >
+                      Seller Center
+                    </Link>
+
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-4 py-2 text-gray-900 font-medium hover:bg-gray-100 transition"
+                    >
+                      Admin Dashboard
+                    </Link>
+
+                    <div className="border-t border-gray-100 my-1"></div>
+
+                    <button
+                      onClick={() => {
+                        logout();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition text-xs font-semibold"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Mobile Search Overlay Form with Voice Search */}
-        {isMobileSearchOpen && (
-          <div className="mt-3 md:hidden">
-            <form onSubmit={handleSearchSubmit} className="flex relative">
-              <input
-                type="text"
-                placeholder={
-                  isListening
-                    ? "🎙️ Listening... Speak now..."
-                    : "Search Made in Uganda..."
-                }
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-                className={`w-full h-10 pl-3 pr-20 text-sm border rounded-l-lg focus:outline-none transition ${
-                  isListening
-                    ? "border-red-500 ring-2 ring-red-200 bg-red-50/20"
-                    : "border-gray-300 focus:border-emerald-700"
-                }`}
-              />
+          {/* Mobile Search Overlay Form with Voice Search */}
+          {isMobileSearchOpen && (
+            <div className="mt-3 md:hidden">
+              <form onSubmit={handleSearchSubmit} className="flex relative">
+                <input
+                  type="text"
+                  placeholder="Search in English, Luganda, or Swahili..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full h-10 pl-3 pr-20 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:border-emerald-700"
+                />
 
-              <div className="absolute right-12 top-1.5 flex items-center gap-1">
-                {searchQuery && (
+                <div className="absolute right-12 top-1.5 flex items-center gap-1">
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                  {/* Mobile Voice Search Mic */}
                   <button
                     type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="p-1 text-gray-400 hover:text-gray-600"
+                    onClick={() => setIsVoiceModalOpen(true)}
+                    className="p-1.5 rounded-full text-emerald-700 hover:bg-emerald-50 transition"
+                    title="Voice Search in Any Language"
                   >
-                    <X size={14} />
+                    <Mic size={17} />
                   </button>
-                )}
-                {/* Mobile Voice Search Mic */}
+                </div>
+
                 <button
-                  type="button"
-                  onClick={toggleVoiceSearch}
-                  className={`p-1.5 rounded-full transition-all ${
-                    isListening
-                      ? "bg-red-600 text-white animate-pulse"
-                      : "text-gray-500 hover:text-emerald-700"
-                  }`}
-                  title="Voice Search: Speak in your local language"
+                  type="submit"
+                  className="px-4 bg-emerald-700 text-white rounded-r-lg flex items-center justify-center shrink-0"
                 >
-                  {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+                  <Search size={18} />
                 </button>
-              </div>
+              </form>
 
-              <button
-                type="submit"
-                className="px-4 bg-emerald-700 text-white rounded-r-lg flex items-center justify-center shrink-0"
-              >
-                <Search size={18} />
-              </button>
-            </form>
+              {queryTranslation.isTranslated && (
+                <div className="text-[11px] bg-green-50 border border-green-200 text-green-900 font-semibold mt-1 px-2 py-1 rounded-md flex items-center gap-1">
+                  <Sparkles size={13} className="text-green-700 shrink-0" />
+                  <span>
+                    Auto-translating: <strong>&ldquo;{queryTranslation.translated}&rdquo;</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
 
-            {isListening && (
-              <p className="text-[11px] text-red-600 font-bold mt-1 px-1 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block" />
-                Listening... Speak in Luganda, Swahili, or English
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </header>
+      {/* Voice Search Modal in Any Language */}
+      <VoiceSearchModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onSearch={handleVoiceSearchResult}
+      />
+    </>
   );
 };

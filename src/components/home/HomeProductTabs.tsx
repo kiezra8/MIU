@@ -152,7 +152,7 @@ export const HomeProductTabs: React.FC<HomeProductTabsProps> = ({ products }) =>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="font-extrabold text-gray-900 uppercase tracking-tight text-[11px] sm:text-xs">
-              Maker Location:
+              Location:
             </span>
             <span className="text-gray-500 hidden sm:inline text-[11px]">
               Shop products manufactured in your area
