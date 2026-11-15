@@ -3,7 +3,6 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { CATEGORIES } from "@/lib/data/store";
 
 export const CategoryGrid: React.FC = () => {
@@ -13,17 +12,10 @@ export const CategoryGrid: React.FC = () => {
   return (
     <section className="my-6">
       {/* Section Header */}
-      <div className="flex items-center justify-between mb-3 px-1">
+      <div className="mb-3 px-1">
         <h2 className="text-sm sm:text-base md:text-lg font-black text-gray-900 tracking-tight uppercase">
           Shop by Category
         </h2>
-        <Link
-          href="/categories"
-          className="text-xs font-bold text-green-700 hover:text-green-900 transition flex items-center gap-0.5"
-        >
-          <span>View all 10</span>
-          <ChevronRight size={13} />
-        </Link>
       </div>
 
       {/* 5 by 2 Grid: square cards with round borders */}

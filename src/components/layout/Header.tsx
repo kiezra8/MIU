@@ -16,7 +16,9 @@ import {
   ShieldCheck,
   TrendingUp,
   Clock,
-  MessageCircle
+  MessageCircle,
+  Mic,
+  MicOff
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -34,7 +36,93 @@ export const Header: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechStatus, setSpeechStatus] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Voice Search handler supporting local phrasing (Luganda, Swahili, Ugandan English)
+  const toggleVoiceSearch = () => {
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Voice search is not supported on this browser. Please use Chrome, Safari, or Edge.");
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false);
+      setSpeechStatus("");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      // 'en-UG' enables Ugandan English accent & local East African phonetics (Luganda/Swahili names)
+      recognition.lang = "en-UG";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setSpeechStatus("Listening... Speak in your local language or English");
+        setIsSearchOpen(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+          setSearchQuery(currentText);
+        }
+
+        if (finalTranscript.trim()) {
+          setIsListening(false);
+          setSpeechStatus("");
+          router.push(`/search?q=${encodeURIComponent(finalTranscript.trim())}`);
+          setIsSearchOpen(false);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition notice:", event.error);
+        setIsListening(false);
+        setSpeechStatus("");
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        setSpeechStatus("");
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error("Speech recognition startup error:", err);
+      setIsListening(false);
+      setSpeechStatus("");
+    }
+  };
 
   // Close search suggestions on click outside
   useEffect(() => {
@@ -172,28 +260,58 @@ export const Header: React.FC = () => {
                 <ChevronDown size={14} className="absolute right-2 top-3.5 text-gray-500 pointer-events-none" />
               </div>
 
-              {/* Input field */}
+              {/* Input field with Voice Recognition */}
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Search authentic Ugandan products, brands, artisans..."
+                  placeholder={
+                    isListening
+                      ? "🎙️ Listening... Speak in your local language or English..."
+                      : "Search authentic Ugandan products, brands, artisans..."
+                  }
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setIsSearchOpen(true);
                   }}
                   onFocus={() => setIsSearchOpen(true)}
-                  className="w-full h-11 pl-4 pr-10 text-sm border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition"
+                  className={`w-full h-11 pl-4 pr-20 text-sm border focus:outline-none transition ${
+                    isListening
+                      ? "border-red-500 ring-2 ring-red-200 bg-red-50/20"
+                      : "border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                  }`}
                 />
-                {searchQuery && (
+                
+                <div className="absolute right-2.5 top-2 flex items-center gap-1">
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                      title="Clear"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+
+                  {/* Local Language Voice Search Button */}
                   <button
                     type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    onClick={toggleVoiceSearch}
+                    className={`p-1.5 rounded-full transition-all ${
+                      isListening
+                        ? "bg-red-600 text-white animate-pulse shadow-xs"
+                        : "text-gray-500 hover:text-emerald-700 hover:bg-gray-100"
+                    }`}
+                    title={
+                      isListening
+                        ? "Listening... Tap to stop"
+                        : "Voice Search: Speak in your local language (Luganda, Swahili, English)"
+                    }
                   >
-                    <X size={16} />
+                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Search button in Ugandan Green */}
@@ -206,8 +324,16 @@ export const Header: React.FC = () => {
               </button>
             </form>
 
+            {/* Listening Status Banner for Desktop */}
+            {isListening && speechStatus && (
+              <div className="absolute top-12 left-0 right-0 bg-red-50 border border-red-200 text-red-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-2 z-50 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block shrink-0" />
+                <span className="font-semibold">{speechStatus}</span>
+              </div>
+            )}
+
             {/* Live Search Suggestions Dropdown */}
-            {isSearchOpen && (
+            {isSearchOpen && !isListening && (
               <div className="absolute top-12 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 max-h-96 overflow-y-auto">
                 {searchQuery.trim() ? (
                   <div>
@@ -459,25 +585,66 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Search Overlay Form */}
+        {/* Mobile Search Overlay Form with Voice Search */}
         {isMobileSearchOpen && (
           <div className="mt-3 md:hidden">
-            <form onSubmit={handleSearchSubmit} className="flex">
+            <form onSubmit={handleSearchSubmit} className="flex relative">
               <input
                 type="text"
-                placeholder="Search Made in Uganda..."
+                placeholder={
+                  isListening
+                    ? "🎙️ Listening... Speak now..."
+                    : "Search Made in Uganda..."
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 autoFocus
-                className="w-full h-10 px-3 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:border-emerald-700"
+                className={`w-full h-10 pl-3 pr-20 text-sm border rounded-l-lg focus:outline-none transition ${
+                  isListening
+                    ? "border-red-500 ring-2 ring-red-200 bg-red-50/20"
+                    : "border-gray-300 focus:border-emerald-700"
+                }`}
               />
+
+              <div className="absolute right-12 top-1.5 flex items-center gap-1">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                {/* Mobile Voice Search Mic */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceSearch}
+                  className={`p-1.5 rounded-full transition-all ${
+                    isListening
+                      ? "bg-red-600 text-white animate-pulse"
+                      : "text-gray-500 hover:text-emerald-700"
+                  }`}
+                  title="Voice Search: Speak in your local language"
+                >
+                  {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+                </button>
+              </div>
+
               <button
                 type="submit"
-                className="px-4 bg-emerald-700 text-white rounded-r-lg flex items-center justify-center"
+                className="px-4 bg-emerald-700 text-white rounded-r-lg flex items-center justify-center shrink-0"
               >
                 <Search size={18} />
               </button>
             </form>
+
+            {isListening && (
+              <p className="text-[11px] text-red-600 font-bold mt-1 px-1 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block" />
+                Listening... Speak in Luganda, Swahili, or English
+              </p>
+            )}
           </div>
         )}
       </div>

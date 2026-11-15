@@ -891,25 +891,49 @@ export const INITIAL_PLATFORM_SETTINGS: PlatformSettings = {
   },
 };
 
-export const UGANDAN_DISTRICTS = [
-  "Kampala",
-  "Wakiso",
-  "Mukono",
-  "Jinja",
-  "Entebbe",
-  "Mbarara",
-  "Gulu",
-  "Mbale",
-  "Masaka",
-  "Fort Portal",
-  "Arua",
-  "Soroti",
-  "Lira",
-  "Kasese",
-  "Kabale",
-  "Tororo",
-  "Hoima",
-  "Busia",
-  "Mityana",
-  "Iganga",
+export const UGANDA_REGIONS = [
+  {
+    name: "Central",
+    districts: [
+      "Kampala", "Wakiso", "Mukono", "Mpigi", "Luwero", "Masaka", "Entebbe",
+      "Mityana", "Mubende", "Kayunga", "Butambala", "Gomba", "Buvuma", "Kalangala",
+      "Kiboga", "Kyankwanzi", "Nakaseke", "Nakasongola", "Rakai", "Lyantonde",
+      "Lwengo", "Bukomansimbi", "Kalungu", "Kyotera", "Kasanda"
+    ]
+  },
+  {
+    name: "Eastern",
+    districts: [
+      "Jinja", "Mbale", "Iganga", "Tororo", "Busia", "Soroti", "Bugiri",
+      "Kamuli", "Mayuge", "Kapchorwa", "Kumi", "Pallisa", "Sironko", "Budaka",
+      "Bududa", "Bukwo", "Butaleja", "Kaliro", "Manafwa", "Namutumba", "Ngora",
+      "Serere", "Kibuku", "Bulambuli", "Buyende", "Luuka", "Namayingo", "Butebo",
+      "Namisindwa", "Bugweri"
+    ]
+  },
+  {
+    name: "Western",
+    districts: [
+      "Mbarara", "Kasese", "Kabale", "Fort Portal", "Hoima", "Bushenyi", "Ntungamo",
+      "Rukungiri", "Kisoro", "Ibanda", "Isingiro", "Kiruhura", "Masindi", "Kibaale",
+      "Bundibugyo", "Kanungu", "Kamwenge", "Kyenjojo", "Buliisa", "Kiryandongo",
+      "Kyegegwa", "Mitooma", "Rubirizi", "Sheema", "Buhweju", "Ntoroko", "Kagadi",
+      "Kakumiro", "Rubanda", "Rukiga", "Bunyangabu", "Kikuube", "Kitagwenda", "Kazo",
+      "Rwampara"
+    ]
+  },
+  {
+    name: "Northern",
+    districts: [
+      "Gulu", "Arua", "Lira", "Kitgum", "Pader", "Kotido", "Moroto", "Nebbi",
+      "Yumbe", "Moyo", "Adjumani", "Apac", "Dokolo", "Amolatar", "Amuru", "Oyam",
+      "Abim", "Kaabong", "Koboko", "Maracha", "Nakapiripirit", "Amudat", "Otuke",
+      "Alebtong", "Agago", "Kole", "Lamwo", "Nwoya", "Zombo", "Napak", "Karenga",
+      "Madi-Okollo", "Obongi", "Kwania", "Terego"
+    ]
+  }
 ];
+
+export const UGANDAN_DISTRICTS = [
+  ...new Set(UGANDA_REGIONS.flatMap((r) => r.districts))
+].sort();
