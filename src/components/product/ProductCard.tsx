@@ -56,13 +56,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, compact = fal
           />
         </Link>
 
-        {/* Discount badge — top left red pill */}
-        {product.discount_percentage && product.discount_percentage > 0 && (
-          <span className="absolute top-2 left-2 z-10 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow-xs tracking-tight">
-            -{product.discount_percentage}%
-          </span>
-        )}
-
         {/* Wishlist — top right */}
         <button
           onClick={handleToggleWishlist}
@@ -87,45 +80,42 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, compact = fal
             </h3>
           </Link>
 
-          {/* Price row: Price specifically in GREEN */}
-          <div className="flex items-baseline gap-1.5 flex-wrap mb-1">
-            <span className="text-xs sm:text-sm md:text-base font-black text-green-700">
-              {formatUGX(product.price_ugx)}
-            </span>
-            {product.compare_at_price_ugx && product.compare_at_price_ugx > product.price_ugx && (
-              <span className="text-[10px] sm:text-[11px] text-gray-400 line-through">
-                {formatUGX(product.compare_at_price_ugx)}
-              </span>
-            )}
-          </div>
-
           {/* Star Rating */}
-          <div className="flex items-center gap-1 mb-2">
+          <div className="flex items-center gap-1 mb-1">
             <Star size={11} className="fill-yellow-400 text-yellow-400" />
             <span className="text-[11px] font-semibold text-gray-700">{product.rating}</span>
             <span className="text-[11px] text-gray-400">({product.review_count})</span>
           </div>
         </div>
 
-        {/* Add to Cart button */}
-        <button
-          onClick={handleAddToCart}
-          className={`w-full py-1.5 sm:py-2 px-2 rounded-lg text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs ${
-            isAdded
-              ? "bg-green-800 text-white"
-              : "bg-black hover:bg-green-700 text-white active:scale-95"
-          }`}
-        >
-          {isAdded ? (
-            <>
-              <Check size={13} /> Added!
-            </>
-          ) : (
-            <>
-              <ShoppingCart size={13} /> Add to Cart
-            </>
-          )}
-        </button>
+        {/* ── Bottom Row: Exactly ONE Price in Green + Small Cart Button ── */}
+        <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-gray-100 mt-1">
+          {/* Single clean green price, NO crossing */}
+          <span className="text-xs sm:text-sm font-black text-green-700 truncate">
+            {formatUGX(product.price_ugx)}
+          </span>
+
+          {/* Small compact cart button */}
+          <button
+            onClick={handleAddToCart}
+            className={`px-2 sm:px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-bold flex items-center gap-1 transition shadow-2xs shrink-0 ${
+              isAdded
+                ? "bg-green-800 text-white"
+                : "bg-black hover:bg-green-700 text-white active:scale-95"
+            }`}
+            title="Add to Cart"
+          >
+            {isAdded ? (
+              <>
+                <Check size={11} /> Added
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={11} /> +Cart
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

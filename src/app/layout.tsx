@@ -19,6 +19,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  referrer: "no-referrer",
   title: "MIU — Made In Uganda | Everything Ugandan, In One Marketplace",
   description:
     "Official digital marketplace dedicated exclusively to authentic Ugandan products. Shop coffee, kitenge fashion, handcrafted crafts, organic produce, footwear, and locally manufactured goods nationwide.",

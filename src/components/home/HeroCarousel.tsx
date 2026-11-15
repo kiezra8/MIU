@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { HERO_SLIDES } from "@/lib/data/store";
 
 export const HeroCarousel: React.FC = () => {
@@ -78,33 +77,24 @@ export const HeroCarousel: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10 sm:bg-gradient-to-r sm:from-black/80 sm:via-black/50 sm:to-transparent" />
             </div>
 
-            {/* Slide content */}
-            <div className="relative z-10 w-full sm:max-w-xl px-5 sm:px-10 md:px-16 pb-10 sm:pb-0 sm:py-10">
+            {/* Clean minimal slide content (no buttons, few words) */}
+            <div className="relative z-10 w-full sm:max-w-xl px-5 sm:px-10 md:px-16 pb-6 sm:pb-0 sm:py-8">
               {/* Pill badge */}
-              <div className="inline-block mb-2.5">
-                <span className="bg-green-700 text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+              <div className="inline-block mb-1.5">
+                <span className="bg-green-700/90 backdrop-blur-xs text-white text-[10px] sm:text-xs font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full">
                   {slide.badge_text}
                 </span>
               </div>
 
-              {/* Title */}
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight tracking-tight mb-2 sm:mb-3">
+              {/* Title - clean and punchy */}
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-white leading-tight tracking-tight drop-shadow-md">
                 {slide.title}
               </h1>
 
-              {/* Subtitle */}
-              <p className="text-gray-200 text-xs sm:text-sm md:text-base leading-relaxed mb-4 sm:mb-6 line-clamp-2 sm:line-clamp-3 max-w-sm sm:max-w-none">
+              {/* Subtitle - very short and clean */}
+              <p className="text-gray-200 text-xs sm:text-sm font-medium mt-1 drop-shadow-sm max-w-md">
                 {slide.subtitle}
               </p>
-
-              {/* CTA button */}
-              <Link
-                href={slide.cta_link}
-                className="inline-flex items-center gap-2 bg-white text-black hover:bg-gray-100 font-bold text-xs sm:text-sm px-5 py-2.5 sm:px-6 sm:py-3 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
-              >
-                {slide.cta_text}
-                <ArrowRight size={16} />
-              </Link>
             </div>
           </div>
         ))}
