@@ -21,8 +21,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, compact = fal
 
   const isFavorited = isInWishlist(product.id);
   const primaryImage =
-    product.images[0]?.image_url ||
-    "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80";
+    product.images?.[0]?.image_url ||
+    "/images/food.jpg";
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,14 +44,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, compact = fal
         compact ? "" : "rounded-xl border border-gray-100 hover:shadow-md hover:border-gray-200"
       } transition-all duration-200 h-full`}
     >
-      {/* ── Image Section (3:4 ratio dominant) ── */}
-      <div className="relative w-full overflow-hidden bg-gray-50 aspect-3/4">
-        <Link href={`/products/${product.slug}`} className="block w-full h-full">
+      {/* ── Image Section (Guaranteed height & aspect ratio) ── */}
+      <div className="relative w-full aspect-[3/4] h-44 sm:h-56 overflow-hidden bg-gray-100">
+        <Link href={`/products/${product.slug}`} className="block w-full h-full relative">
           <Image
             src={primaryImage}
             alt={product.name}
             fill
-            className="object-cover object-top group-hover:scale-105 transition-transform duration-500"
+            className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         </Link>

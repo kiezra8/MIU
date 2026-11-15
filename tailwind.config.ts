@@ -56,6 +56,10 @@ export default {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
+      aspectRatio: {
+        "3/4": "3 / 4",
+        "4/5": "4 / 5",
+      },
     },
   },
   plugins: [],
