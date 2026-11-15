@@ -93,7 +93,7 @@ export const HomeProductTabs: React.FC<HomeProductTabsProps> = ({ products }) =>
           <div className="flex items-center justify-between mb-4 px-1">
             <div>
               <h3 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
-                🔥 Trending Across Uganda
+                Trending Across Uganda
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 Top rated and most purchased items this week
