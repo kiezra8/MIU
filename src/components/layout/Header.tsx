@@ -23,7 +23,7 @@ import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 import { PRODUCTS, CATEGORIES, SELLERS } from "@/lib/data/store";
-import { translateLocalQuery } from "@/lib/utils/localLanguageTranslator";
+import { translateWithFreeAI } from "@/lib/utils/aiSearchAssistant";
 import { VoiceSearchModal } from "@/components/layout/VoiceSearchModal";
 
 export const Header: React.FC = () => {
@@ -38,15 +38,41 @@ export const Header: React.FC = () => {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [aiTranslatedText, setAiTranslatedText] = useState("");
+  const [detectedLang, setDetectedLang] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Auto-translate user input from Luganda, Swahili, Runyankore, Luo, etc. into English
-  const queryTranslation = useMemo(
-    () => translateLocalQuery(searchQuery),
-    [searchQuery]
-  );
+  // Auto-translate user local language input using free AI
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setAiTranslatedText("");
+      setDetectedLang("");
+      return;
+    }
 
-  // Handle voice result from VoiceSearchModal
+    const timer = setTimeout(async () => {
+      setIsTranslating(true);
+      try {
+        const res = await translateWithFreeAI(searchQuery);
+        if (res.translated && res.translated.toLowerCase() !== searchQuery.toLowerCase().trim()) {
+          setAiTranslatedText(res.translated);
+          setDetectedLang(res.detectedLanguage);
+        } else {
+          setAiTranslatedText("");
+          setDetectedLang("");
+        }
+      } catch {
+        // Keep smooth fallback
+      } finally {
+        setIsTranslating(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Handle voice search result from AI VoiceSearchModal
   const handleVoiceSearchResult = (finalQuery: string, originalQuery: string) => {
     setSearchQuery(finalQuery);
     setIsVoiceModalOpen(false);
@@ -68,12 +94,15 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter live suggestions matching either original input or translated English terms
+  // Filter live suggestions matching original input or translated English terms
   const matchingProducts = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const qOriginal = searchQuery.toLowerCase();
-    const qTranslated = queryTranslation.translated.toLowerCase();
-    const translatedTokens = qTranslated.split(" ").filter((t) => t.length > 2);
+    const qTranslated = aiTranslatedText ? aiTranslatedText.toLowerCase() : "";
+    const tokens = [
+      ...qOriginal.split(" "),
+      ...(qTranslated ? qTranslated.split(" ") : []),
+    ].filter((t) => t.length > 2);
 
     return PRODUCTS.filter((p) => {
       const name = p.name.toLowerCase();
@@ -84,25 +113,22 @@ export const Header: React.FC = () => {
       return (
         name.includes(qOriginal) ||
         cat.includes(qOriginal) ||
-        name.includes(qTranslated) ||
-        cat.includes(qTranslated) ||
-        desc.includes(qTranslated) ||
-        sub.includes(qTranslated) ||
-        translatedTokens.some((t) => name.includes(t) || cat.includes(t))
+        (qTranslated && (name.includes(qTranslated) || cat.includes(qTranslated) || desc.includes(qTranslated) || sub.includes(qTranslated))) ||
+        tokens.some((t) => name.includes(t) || cat.includes(t))
       );
     }).slice(0, 4);
-  }, [searchQuery, queryTranslation]);
+  }, [searchQuery, aiTranslatedText]);
 
   const matchingCategories = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const qOriginal = searchQuery.toLowerCase();
-    const qTranslated = queryTranslation.translated.toLowerCase();
+    const qTranslated = aiTranslatedText ? aiTranslatedText.toLowerCase() : "";
     return CATEGORIES.filter(
       (c) =>
         c.name.toLowerCase().includes(qOriginal) ||
-        c.name.toLowerCase().includes(qTranslated)
+        (qTranslated && c.name.toLowerCase().includes(qTranslated))
     ).slice(0, 2);
-  }, [searchQuery, queryTranslation]);
+  }, [searchQuery, aiTranslatedText]);
 
   const matchingSellers = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -118,11 +144,8 @@ export const Header: React.FC = () => {
     setIsSearchOpen(false);
     setIsMobileSearchOpen(false);
 
-    // If query was in a local language, search by translated English product terms
-    const finalTarget = queryTranslation.isTranslated
-      ? queryTranslation.translated
-      : searchQuery.trim();
-
+    // If query was in a local language, search by translated English product keywords
+    const finalTarget = aiTranslatedText || searchQuery.trim();
     router.push(
       `/search?q=${encodeURIComponent(finalTarget)}&orig=${encodeURIComponent(searchQuery.trim())}&cat=${selectedCategory}`
     );
@@ -226,7 +249,7 @@ export const Header: React.FC = () => {
                   <ChevronDown size={14} className="absolute right-2 top-3.5 text-gray-500 pointer-events-none" />
                 </div>
 
-                {/* Input field with Voice Recognition & Local Language Translation */}
+                {/* Input field with AI Voice & Multilingual Translation */}
                 <div className="relative flex-1">
                   <input
                     type="text"
@@ -252,14 +275,14 @@ export const Header: React.FC = () => {
                       </button>
                     )}
 
-                    {/* Voice Search in Any Language */}
+                    {/* AI Voice Search in Any Language */}
                     <button
                       type="button"
                       onClick={() => setIsVoiceModalOpen(true)}
-                      className="p-1.5 rounded-full text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
-                      title="Voice Search in Any Language (Luganda, Swahili, English)"
+                      className="p-1.5 rounded-full text-emerald-700 hover:bg-emerald-50 transition-all"
+                      title="AI Voice Search in Any Language (Luganda, Swahili, English)"
                     >
-                      <Mic size={17} className="text-emerald-700 hover:scale-110 transition-transform" />
+                      <Mic size={18} className="hover:scale-110 transition-transform" />
                     </button>
                   </div>
                 </div>
@@ -277,19 +300,26 @@ export const Header: React.FC = () => {
               {/* Live Search Suggestions Dropdown */}
               {isSearchOpen && (
                 <div className="absolute top-12 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 max-h-96 overflow-y-auto">
-                  {/* Automatic Language Translation Notice */}
-                  {queryTranslation.isTranslated && (
-                    <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-xs text-green-900">
+                  {/* AI Translation Indicator */}
+                  {aiTranslatedText && (
+                    <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-xs text-green-950">
                       <div className="flex items-center gap-1.5">
                         <Sparkles size={14} className="text-green-700 shrink-0" />
                         <span>
-                          Translating from <strong>{queryTranslation.detectedLanguage || "local language"}</strong>:{" "}
-                          <strong className="text-green-950">&ldquo;{queryTranslation.translated}&rdquo;</strong>
+                          AI Translated from <strong>{detectedLang || "local language"}</strong>:{" "}
+                          <strong className="text-green-950 font-black">&ldquo;{aiTranslatedText}&rdquo;</strong>
                         </span>
                       </div>
                       <span className="text-[10px] bg-green-700 text-white font-black px-1.5 py-0.5 rounded uppercase">
-                        Auto
+                        AI Translated
                       </span>
+                    </div>
+                  )}
+
+                  {isTranslating && !aiTranslatedText && (
+                    <div className="text-[11px] text-gray-400 flex items-center gap-1 mb-2 px-1">
+                      <Sparkles size={12} className="animate-spin text-green-600" />
+                      <span>AI translating query...</span>
                     </div>
                   )}
 
@@ -357,7 +387,7 @@ export const Header: React.FC = () => {
 
                       {matchingProducts.length === 0 && matchingCategories.length === 0 && (
                         <p className="text-xs text-gray-500 py-3 text-center">
-                          Press Enter to search for &ldquo;{queryTranslation.isTranslated ? queryTranslation.translated : searchQuery}&rdquo;
+                          Press Enter to search for &ldquo;{aiTranslatedText || searchQuery}&rdquo;
                         </p>
                       )}
                     </div>
@@ -382,10 +412,8 @@ export const Header: React.FC = () => {
                             key={term}
                             type="button"
                             onClick={() => {
-                              const trans = translateLocalQuery(term);
-                              const target = trans.isTranslated ? trans.translated : term;
                               setSearchQuery(term);
-                              router.push(`/search?q=${encodeURIComponent(target)}&orig=${encodeURIComponent(term)}`);
+                              router.push(`/search?q=${encodeURIComponent(term)}`);
                               setIsSearchOpen(false);
                             }}
                             className="px-2.5 py-1 text-xs bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-full text-gray-700 transition"
@@ -415,7 +443,7 @@ export const Header: React.FC = () => {
               <Link
                 href="/chat"
                 className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-[#075E54] hover:bg-[#008069] text-white transition shadow-xs"
-                title="Chat & Order with Support"
+                title="Chat &amp; Order with Support"
               >
                 <MessageCircle size={15} />
                 <span>Live Chat</span>
@@ -555,7 +583,7 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Mobile Search Overlay Form with Voice Search */}
+          {/* Mobile Search Overlay Form with AI Voice Search */}
           {isMobileSearchOpen && (
             <div className="mt-3 md:hidden">
               <form onSubmit={handleSearchSubmit} className="flex relative">
@@ -578,12 +606,12 @@ export const Header: React.FC = () => {
                       <X size={14} />
                     </button>
                   )}
-                  {/* Mobile Voice Search Mic */}
+                  {/* Mobile AI Voice Search Mic */}
                   <button
                     type="button"
                     onClick={() => setIsVoiceModalOpen(true)}
                     className="p-1.5 rounded-full text-emerald-700 hover:bg-emerald-50 transition"
-                    title="Voice Search in Any Language"
+                    title="AI Voice Search in Any Language"
                   >
                     <Mic size={17} />
                   </button>
@@ -597,11 +625,11 @@ export const Header: React.FC = () => {
                 </button>
               </form>
 
-              {queryTranslation.isTranslated && (
+              {aiTranslatedText && (
                 <div className="text-[11px] bg-green-50 border border-green-200 text-green-900 font-semibold mt-1 px-2 py-1 rounded-md flex items-center gap-1">
                   <Sparkles size={13} className="text-green-700 shrink-0" />
                   <span>
-                    Auto-translating: <strong>&ldquo;{queryTranslation.translated}&rdquo;</strong>
+                    AI Translating: <strong>&ldquo;{aiTranslatedText}&rdquo;</strong>
                   </span>
                 </div>
               )}
@@ -610,7 +638,7 @@ export const Header: React.FC = () => {
         </div>
       </header>
 
-      {/* Voice Search Modal in Any Language */}
+      {/* AI Voice Search Modal */}
       <VoiceSearchModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}

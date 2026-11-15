@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, Suspense } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, Mic, Sparkles, X } from "lucide-react";
 import { PRODUCTS, CATEGORIES } from "@/lib/data/store";
@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/product/ProductCard";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
-import { translateLocalQuery } from "@/lib/utils/localLanguageTranslator";
+import { translateWithFreeAI } from "@/lib/utils/aiSearchAssistant";
 import { VoiceSearchModal } from "@/components/layout/VoiceSearchModal";
 
 function SearchContent() {
@@ -22,20 +22,41 @@ function SearchContent() {
   const [selectedOrigin, setSelectedOrigin] = useState("all");
   const [sortBy, setSortBy] = useState("relevance");
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [aiTranslatedQuery, setAiTranslatedQuery] = useState("");
+  const [detectedLanguage, setDetectedLanguage] = useState("");
 
-  // Auto-translate query if typed in Luganda, Swahili, or other local language
-  const translation = useMemo(() => translateLocalQuery(query), [query]);
+  // Auto-translate query if typed in Luganda, Swahili, or local language using AI
+  useEffect(() => {
+    if (!query.trim()) {
+      setAiTranslatedQuery("");
+      setDetectedLanguage("");
+      return;
+    }
+
+    let isCurrent = true;
+    translateWithFreeAI(query).then((res) => {
+      if (isCurrent && res.translated && res.translated.toLowerCase() !== query.toLowerCase().trim()) {
+        setAiTranslatedQuery(res.translated);
+        setDetectedLanguage(res.detectedLanguage);
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [query]);
 
   const results = useMemo(() => {
     let list = [...PRODUCTS];
 
     if (query.trim()) {
       const qOriginal = query.toLowerCase();
-      const qTranslated = translation.translated.toLowerCase();
+      const qTranslated = aiTranslatedQuery ? aiTranslatedQuery.toLowerCase() : "";
       const origLow = origParam.toLowerCase();
       const tokens = [
-        ...qTranslated.split(" "),
         ...qOriginal.split(" "),
+        ...(qTranslated ? qTranslated.split(" ") : []),
+        ...(origLow ? origLow.split(" ") : []),
       ].filter((t) => t.length > 2);
 
       list = list.filter((p) => {
@@ -50,11 +71,7 @@ function SearchContent() {
         return (
           name.includes(qOriginal) ||
           cat.includes(qOriginal) ||
-          name.includes(qTranslated) ||
-          cat.includes(qTranslated) ||
-          shortDesc.includes(qTranslated) ||
-          fullDesc.includes(qTranslated) ||
-          sub.includes(qTranslated) ||
+          (qTranslated && (name.includes(qTranslated) || cat.includes(qTranslated) || shortDesc.includes(qTranslated) || fullDesc.includes(qTranslated) || sub.includes(qTranslated))) ||
           (origLow && (name.includes(origLow) || cat.includes(origLow))) ||
           loc.includes(qOriginal) ||
           dist.includes(qOriginal) ||
@@ -92,9 +109,9 @@ function SearchContent() {
     }
 
     return list;
-  }, [query, translation, origParam, selectedCategory, selectedOrigin, sortBy]);
+  }, [query, aiTranslatedQuery, origParam, selectedCategory, selectedOrigin, sortBy]);
 
-  const handleVoiceSearchResult = (finalQuery: string, _originalQuery: string) => {
+  const handleVoiceSearchResult = (finalQuery: string) => {
     setQuery(finalQuery);
     setIsVoiceModalOpen(false);
   };
@@ -132,7 +149,7 @@ function SearchContent() {
                 type="button"
                 onClick={() => setIsVoiceModalOpen(true)}
                 className="p-1 text-emerald-700 hover:bg-emerald-50 rounded-full transition"
-                title="Voice Search in Any Language"
+                title="AI Voice Search in Any Language"
               >
                 <Mic size={17} />
               </button>
@@ -200,20 +217,20 @@ function SearchContent() {
       </div>
 
       {/* Auto-Translation Banner when query is translated from a local language */}
-      {(translation.isTranslated || origParam) && (
-        <div className="mb-5 p-3 bg-green-50 border border-green-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-green-950">
+      {(aiTranslatedQuery || origParam) && (
+        <div className="mb-5 p-3.5 bg-gradient-to-r from-green-50 via-white to-green-50 border border-green-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-green-950 shadow-2xs">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-green-700 shrink-0" />
             <span>
-              Searching for translated term:{" "}
-              <strong className="text-green-950 font-black">&ldquo;{translation.translated}&rdquo;</strong>{" "}
+              AI translated search:{" "}
+              <strong className="text-green-950 font-black">&ldquo;{aiTranslatedQuery || query}&rdquo;</strong>{" "}
               <span className="text-gray-600">
-                (Auto-translated from {translation.detectedLanguage || "local language"}: &ldquo;{origParam || query}&rdquo;)
+                (from {detectedLanguage || "local language"}: &ldquo;{origParam || query}&rdquo;)
               </span>
             </span>
           </div>
           <span className="text-[10px] uppercase font-black bg-green-700 text-white px-2 py-0.5 rounded-full self-start sm:self-auto shrink-0">
-            Auto-Translated
+            AI-Translated
           </span>
         </div>
       )}
